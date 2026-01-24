@@ -39,21 +39,29 @@ export default function WorkSync() {
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [isLiveMode, setIsLiveMode] = useState(true); // Track if viewing real-time
 
   const t = translations[lang];
 
-  // Real-time seconds update
+  // Real-time update (seconds + minutes when in live mode)
   useEffect(() => {
     if (!isClient) return;
 
-    const updateSeconds = () => {
-      setSeconds(new Date().getSeconds());
+    const updateTime = () => {
+      const now = new Date();
+      setSeconds(now.getSeconds());
+
+      // Update minutes when in live mode
+      if (isLiveMode) {
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        setMinutes(currentMinutes);
+      }
     };
 
-    updateSeconds();
-    const interval = setInterval(updateSeconds, 1000);
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, [isClient]);
+  }, [isClient, isLiveMode]);
 
   useEffect(() => {
     setIsClient(true);
@@ -324,15 +332,18 @@ WorkSync`;
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
+          setIsLiveMode(false);
           setMinutes(m => Math.max(0, m - (e.shiftKey ? 60 : 15)));
           break;
         case 'ArrowRight':
           e.preventDefault();
+          setIsLiveMode(false);
           setMinutes(m => Math.min(1440, m + (e.shiftKey ? 60 : 15)));
           break;
         case 'g':
         case 'G':
           // Jump to golden/silver hour
+          setIsLiveMode(false);
           if (goldenIntervals.length > 0) {
             setMinutes(goldenIntervals[0].start);
           } else if (silverIntervals.length > 0) {
@@ -341,9 +352,8 @@ WorkSync`;
           break;
         case 'n':
         case 'N':
-          // Reset to now
-          const now = new Date();
-          setMinutes(now.getHours() * 60 + now.getMinutes());
+          // Reset to now (enable live mode)
+          setIsLiveMode(true);
           break;
       }
     };
@@ -359,6 +369,7 @@ WorkSync`;
   };
 
   const jumpToGoldenHour = () => {
+    setIsLiveMode(false);
     if (goldenIntervals.length > 0) {
       setMinutes(goldenIntervals[0].start);
     } else if (silverIntervals.length > 0) {
@@ -455,8 +466,7 @@ WorkSync`;
                 </Button>
               )}
               <Button variant="ghost" size="sm" onClick={() => {
-                const now = new Date();
-                setMinutes(now.getHours() * 60 + now.getMinutes());
+                setIsLiveMode(true);
               }} className="h-8 text-xs gap-1.5 text-muted-foreground">
                 <Clock className="w-3 h-3" />
                 <span className="hidden sm:inline">{t.reset}</span>
@@ -509,7 +519,7 @@ WorkSync`;
               min={0}
               max={1440}
               value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))}
+              onChange={(e) => { setIsLiveMode(false); setMinutes(Number(e.target.value)); }}
               className="absolute w-full h-full opacity-0 cursor-ew-resize z-10"
               aria-label="Time selector"
             />
@@ -544,7 +554,7 @@ WorkSync`;
               {(hasGoldenTime ? goldenIntervals : silverIntervals).slice(0, 3).map((interval, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setMinutes(interval.start)}
+                  onClick={() => { setIsLiveMode(false); setMinutes(interval.start); }}
                   className="font-mono px-2 py-0.5 rounded bg-secondary hover:bg-accent transition-colors"
                 >
                   {formatIntervalTime(interval.start)}–{formatIntervalTime(interval.end)}
@@ -559,7 +569,7 @@ WorkSync`;
       <OptimalTimesPanel
         timeSlots={topTimeSlots}
         lang={lang}
-        onSelectTime={setMinutes}
+        onSelectTime={(m) => { setIsLiveMode(false); setMinutes(m); }}
       />
 
       {/* City Cards */}

@@ -32,7 +32,7 @@ export function getTimeStatus(date: Date, timezone: string, workStart: number = 
     return 'work';
   }
 
-  if (decimalHours >= 6 && decimalHours < 22) { // Assuming day is 6am to 10pm roughly for simplicity, excluding work hours
+  if (decimalHours >= 6 && decimalHours < 20) { // Day is 6am to 8pm (reasonable waking hours outside work)
     return 'day';
   }
 
