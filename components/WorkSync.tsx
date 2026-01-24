@@ -330,11 +330,6 @@ export default function WorkSync() {
     }
   };
 
-  if (!isClient) return null;
-
-  const hasGoldenTime = goldenIntervals.length > 0;
-  const hasSilverTime = silverIntervals.length > 0 && !hasGoldenTime;
-
   // Status counts for visual indicator
   const statusCounts = useMemo(() => {
     const counts = { work: 0, day: 0, night: 0 };
@@ -344,6 +339,11 @@ export default function WorkSync() {
     });
     return counts;
   }, [currentSelectedTime, selectedCities, workStart, workEnd]);
+
+  if (!isClient) return null;
+
+  const hasGoldenTime = goldenIntervals.length > 0;
+  const hasSilverTime = silverIntervals.length > 0 && !hasGoldenTime;
 
   return (
     <div className="space-y-6">
