@@ -538,11 +538,7 @@ WorkSync`;
           <div className="flex justify-between items-end text-[10px] text-muted-foreground font-mono -mt-1">
             <span>00:00</span>
             <span>06:00</span>
-            <span className="hidden md:flex flex-col items-center gap-0.5">
-              <span>12:00</span>
-              <span className="text-[8px] opacity-60">← → G N</span>
-            </span>
-            <span className="md:hidden">12:00</span>
+            <span>12:00</span>
             <span>18:00</span>
             <span>24:00</span>
           </div>
