@@ -126,13 +126,33 @@ export default function WorkSync() {
   }, [workStart, workEnd, isClient]);
 
   const copyToClipboard = () => {
-    const timeStr = format(currentSelectedTime, "HH:mm");
+    const statusEmoji = (status: string) => {
+      if (status === 'work') return '🏢';
+      if (status === 'day') return '☀️';
+      return '🌙';
+    };
+
     const citiesStr = selectedCities.map(city => {
-       const cityTime = formatTime(currentSelectedTime, city.timezone);
-       return `${city.name}: ${cityTime}`;
+      const cityTime = formatTime(currentSelectedTime, city.timezone);
+      const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
+      const cityName = cityNames[city.name]?.[lang] || city.name;
+      const statusText = t[status] || status;
+      return `${statusEmoji(status)} ${cityName}: ${cityTime} (${statusText})`;
     }).join('\n');
 
-    const text = `[WorkSync] ${t.goldenHour}\nUTC: ${timeStr}\n\n${citiesStr}`;
+    const hourType = isGoldenHour ? t.goldenHour : isSilverHour ? t.silverHour : '';
+    const hourBadge = hourType ? ` [${hourType}]` : '';
+
+    const text = `📅 ${t.meetingProposal}${hourBadge}
+
+${t.meetingMessage}
+
+${citiesStr}
+
+${t.meetingConfirm}
+
+---
+WorkSync`;
 
     navigator.clipboard.writeText(text);
     setCopied(true);
