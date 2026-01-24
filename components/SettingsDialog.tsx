@@ -15,43 +15,60 @@ interface SettingsDialogProps {
   lang: Language;
 }
 
-// Convert decimal hours to HH:mm format
-const decimalToTime = (decimal: number): string => {
-  const hours = Math.floor(decimal);
-  const minutes = Math.round((decimal - hours) * 60);
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+// Convert decimal hours to { hour, minute }
+const decimalToHourMin = (decimal: number): { hour: number; minute: number } => {
+  const hour = Math.floor(decimal);
+  const minute = Math.round((decimal - hour) * 60);
+  // Normalize minute to 0 or 30
+  return { hour, minute: minute >= 30 ? 30 : 0 };
 };
 
-// Convert HH:mm to decimal hours
-const timeToDecimal = (time: string): number => {
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours + (minutes / 60);
+// Convert { hour, minute } to decimal hours
+const hourMinToDecimal = (hour: number, minute: number): number => {
+  return hour + (minute / 60);
 };
+
+// Generate hour options (0-23)
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+// Generate minute options (0, 30)
+const MINUTES = [0, 30];
 
 export default function SettingsDialog({ workStart, workEnd, onSave, lang }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
-  const [start, setStart] = useState(decimalToTime(workStart));
-  const [end, setEnd] = useState(decimalToTime(workEnd));
+  const [startHour, setStartHour] = useState(decimalToHourMin(workStart).hour);
+  const [startMin, setStartMin] = useState(decimalToHourMin(workStart).minute);
+  const [endHour, setEndHour] = useState(decimalToHourMin(workEnd).hour);
+  const [endMin, setEndMin] = useState(decimalToHourMin(workEnd).minute);
   const t = translations[lang];
 
   useEffect(() => {
     if (open) {
-      setStart(decimalToTime(workStart));
-      setEnd(decimalToTime(workEnd));
+      const start = decimalToHourMin(workStart);
+      const end = decimalToHourMin(workEnd);
+      setStartHour(start.hour);
+      setStartMin(start.minute);
+      setEndHour(end.hour);
+      setEndMin(end.minute);
     }
   }, [open, workStart, workEnd]);
 
   const handleSave = () => {
-    const startDecimal = timeToDecimal(start);
-    const endDecimal = timeToDecimal(end);
+    const startDecimal = hourMinToDecimal(startHour, startMin);
+    const endDecimal = hourMinToDecimal(endHour, endMin);
     onSave(startDecimal, endDecimal);
     setOpen(false);
   };
 
   const handleReset = () => {
-    setStart(decimalToTime(WORK_START_HOUR));
-    setEnd(decimalToTime(WORK_END_HOUR));
+    const start = decimalToHourMin(WORK_START_HOUR);
+    const end = decimalToHourMin(WORK_END_HOUR);
+    setStartHour(start.hour);
+    setStartMin(start.minute);
+    setEndHour(end.hour);
+    setEndMin(end.minute);
   };
+
+  const selectClass = "flex h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono cursor-pointer";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -67,26 +84,64 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">{t.workHours}</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Start Time */}
               <div className="space-y-1.5">
-                <Label htmlFor="start-time" className="text-xs">{t.startTime}</Label>
-                <input
-                  id="start-time"
-                  type="time"
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 font-mono"
-                />
+                <Label className="text-xs">{t.startTime}</Label>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={startHour}
+                    onChange={(e) => setStartHour(Number(e.target.value))}
+                    className={`${selectClass} w-16`}
+                  >
+                    {HOURS.map((h) => (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground">:</span>
+                  <select
+                    value={startMin}
+                    onChange={(e) => setStartMin(Number(e.target.value))}
+                    className={`${selectClass} w-16`}
+                  >
+                    {MINUTES.map((m) => (
+                      <option key={m} value={m}>
+                        {m.toString().padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+              {/* End Time */}
               <div className="space-y-1.5">
-                <Label htmlFor="end-time" className="text-xs">{t.endTime}</Label>
-                <input
-                  id="end-time"
-                  type="time"
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 font-mono"
-                />
+                <Label className="text-xs">{t.endTime}</Label>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={endHour}
+                    onChange={(e) => setEndHour(Number(e.target.value))}
+                    className={`${selectClass} w-16`}
+                  >
+                    {HOURS.map((h) => (
+                      <option key={h} value={h}>
+                        {h.toString().padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground">:</span>
+                  <select
+                    value={endMin}
+                    onChange={(e) => setEndMin(Number(e.target.value))}
+                    className={`${selectClass} w-16`}
+                  >
+                    {MINUTES.map((m) => (
+                      <option key={m} value={m}>
+                        {m.toString().padStart(2, '0')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
