@@ -1,9 +1,20 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
+
 export const metadata: Metadata = {
-  title: "WorkSync",
-  description: "Find the Golden Hour for your global team.",
+  title: "WorkSync — Global Team Time Coordination",
+  description: "Find the Golden Hour for your global team. Sync time, not just clocks.",
 };
 
 export default function RootLayout({
@@ -12,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className="dark">
+      <body className={`${geist.variable} ${geistMono.variable}`}>
         {children}
       </body>
     </html>

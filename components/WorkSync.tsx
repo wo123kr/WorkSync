@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import { motion, AnimatePresence, useMotionValue } from "framer-motion";
+import React, { useState, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Moon, Sun, Briefcase, Copy, Check } from "lucide-react";
+import { X, Moon, Sun, Briefcase, Copy, Check, Clock, Zap } from "lucide-react";
 import { CITIES, WORK_START_HOUR, WORK_END_HOUR } from "@/lib/constants";
 import { getTimeStatus, formatTime, getOffsetString } from "@/lib/time-utils";
 import { addMinutes, startOfDay, format } from "date-fns";
 import CitySelector from "./CitySelector";
 import LanguageSelector from "./LanguageSelector";
 import SettingsDialog from "./SettingsDialog";
+import ThemeToggle from "./ThemeToggle";
 import { cn } from "@/lib/utils";
-import { translations, Language } from "@/lib/i18n";
+import { translations, Language, cityNames } from "@/lib/i18n";
 
-// Default cities
 const DEFAULT_CITIES = [
   CITIES.find(c => c.name === "Seoul")!,
   CITIES.find(c => c.name === "London")!,
@@ -29,22 +29,19 @@ export default function WorkSync() {
   const [workStart, setWorkStart] = useState(WORK_START_HOUR);
   const [workEnd, setWorkEnd] = useState(WORK_END_HOUR);
   const [copied, setCopied] = useState(false);
-  
+
   const t = translations[lang];
 
-  // Initialize with current time and load saved settings
   useEffect(() => {
     setIsClient(true);
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     setMinutes(currentMinutes);
 
-    // Load from local storage
     const savedCities = localStorage.getItem('worksync-cities');
     if (savedCities) {
       try {
         const parsed = JSON.parse(savedCities);
-        // Map back to CITIES objects to ensure consistency
         const mapped = parsed.map((p: any) => CITIES.find(c => c.name === p.name)).filter(Boolean);
         if (mapped.length > 0) setSelectedCities(mapped);
       } catch (e) { console.error('Failed to parse saved cities', e); }
@@ -65,7 +62,6 @@ export default function WorkSync() {
     }
   }, []);
 
-  // Save to local storage on changes
   useEffect(() => {
     if (!isClient) return;
     localStorage.setItem('worksync-cities', JSON.stringify(selectedCities));
@@ -87,9 +83,9 @@ export default function WorkSync() {
        const cityTime = formatTime(currentSelectedTime, city.timezone);
        return `${city.name}: ${cityTime}`;
     }).join('\n');
-    
-    const text = `[WorkSync] ${t.goldenHour} Check\nUTC Time: ${timeStr}\n\n${citiesStr}`;
-    
+
+    const text = `[WorkSync] ${t.goldenHour}\nUTC: ${timeStr}\n\n${citiesStr}`;
+
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -105,7 +101,6 @@ export default function WorkSync() {
     setSelectedCities(selectedCities.filter((c) => c.name !== cityName));
   };
 
-  // Base date (today at 00:00)
   const baseDate = useMemo(() => {
     if (!isClient) return new Date();
     return startOfDay(new Date());
@@ -115,10 +110,8 @@ export default function WorkSync() {
     return addMinutes(baseDate, minutes);
   }, [baseDate, minutes]);
 
-  // Calculate max score across 24h to find "Best Available" times
   const maxScore = useMemo(() => {
     if (!isClient || selectedCities.length === 0) return 0;
-    
     let max = 0;
     for (let i = 0; i < 1440; i += 15) {
       const checkTime = addMinutes(baseDate, i);
@@ -127,14 +120,13 @@ export default function WorkSync() {
         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
         if (status === 'work') score += 2;
         else if (status === 'day') score += 1;
-        else score -= 2; // Penalty for night
+        else score -= 2;
       });
       if (score > max) max = score;
     }
     return max;
   }, [baseDate, selectedCities, isClient, workStart, workEnd]);
 
-  // Current time score
   const currentScore = useMemo(() => {
     if (selectedCities.length === 0) return 0;
     let score = 0;
@@ -147,7 +139,6 @@ export default function WorkSync() {
     return score;
   }, [currentSelectedTime, selectedCities, workStart, workEnd]);
 
-  // Golden Hour Calculation (Strict: All working)
   const isGoldenHour = useMemo(() => {
     if (selectedCities.length === 0) return false;
     return selectedCities.every((city) => {
@@ -156,16 +147,14 @@ export default function WorkSync() {
     });
   }, [currentSelectedTime, selectedCities, workStart, workEnd]);
 
-  // Silver Hour (Best Fit) - Only if not Golden, but matches max possible score
   const isSilverHour = !isGoldenHour && currentScore === maxScore && maxScore > 0;
 
-  // Calculate Golden Intervals for the visual track
   const goldenIntervals = useMemo(() => {
     if (!isClient) return [];
     const intervals: { start: number; end: number }[] = [];
     let currentStart: number | null = null;
 
-    for (let i = 0; i < 1440; i += 15) { // 15 min resolution
+    for (let i = 0; i < 1440; i += 15) {
       const checkTime = addMinutes(baseDate, i);
       const allWorking = selectedCities.every((city) => {
         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
@@ -185,7 +174,6 @@ export default function WorkSync() {
     return intervals;
   }, [baseDate, selectedCities, isClient, workStart, workEnd]);
 
-  // Calculate Silver Intervals (Best Fit)
   const silverIntervals = useMemo(() => {
     if (!isClient || selectedCities.length === 0) return [];
     const intervals: { start: number; end: number }[] = [];
@@ -201,12 +189,6 @@ export default function WorkSync() {
         else score -= 2;
       });
 
-      // It is a silver interval if it matches max score AND is not a golden interval
-      // (Actually, if golden exists, maxScore will match golden score, so silver logic won't trigger if golden is possible)
-      // But if golden is NOT possible, maxScore represents best fit.
-      // If golden IS possible, maxScore is golden score.
-      // So let's check: is score == maxScore?
-      
       const isGolden = selectedCities.every((city) => {
          const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
          return status === 'work';
@@ -225,256 +207,225 @@ export default function WorkSync() {
     return intervals;
   }, [baseDate, selectedCities, isClient, workStart, workEnd, maxScore]);
 
+  const formatIntervalTime = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const jumpToGoldenHour = () => {
+    if (goldenIntervals.length > 0) {
+      setMinutes(goldenIntervals[0].start);
+    } else if (silverIntervals.length > 0) {
+      setMinutes(silverIntervals[0].start);
+    }
+  };
+
   if (!isClient) return null;
 
+  const hasGoldenTime = goldenIntervals.length > 0;
+  const hasSilverTime = silverIntervals.length > 0 && !hasGoldenTime;
+
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-8">
-      {/* Header Section with Title and Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6 pb-4 border-b border-border/40">
-        <div className="text-center md:text-left space-y-2">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-foreground bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            {t.title}
-          </h1>
-          <p className="text-muted-foreground text-sm md:text-base font-light tracking-wide max-w-md">
-            {t.subtitle}
-          </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
-        
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex items-center gap-1">
           <LanguageSelector currentLang={lang} onSelect={setLang} />
-          <div className="flex items-center gap-2">
-             <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => {
-                  const now = new Date();
-                  setMinutes(now.getHours() * 60 + now.getMinutes());
-                }}
-                className="text-xs h-8"
-              >
-                {t.reset}
-              </Button>
-             <SettingsDialog 
-               workStart={workStart} 
-               workEnd={workEnd} 
-               onSave={(s, e) => { setWorkStart(s); setWorkEnd(e); }} 
-               lang={lang}
-             />
-          </div>
+          <ThemeToggle />
+          <SettingsDialog
+            workStart={workStart}
+            workEnd={workEnd}
+            onSave={(s, e) => { setWorkStart(s); setWorkEnd(e); }}
+            lang={lang}
+          />
         </div>
-      </div>
+      </header>
 
-      {/* 1. The Hero Timeline Scrubber */}
-      <div className="relative pt-6 pb-6">
-        {/* Main Time Display */}
-        <div className="text-center mb-8">
-           <motion.div 
-            className="text-7xl font-mono font-bold tracking-tighter text-foreground inline-flex items-center gap-4"
-            animate={{ 
-              color: isGoldenHour ? "#FACC15" : (isSilverHour ? "#60A5FA" : "var(--foreground)"),
-              textShadow: isGoldenHour ? "0 0 40px rgba(250,204,21,0.5)" : (isSilverHour ? "0 0 30px rgba(96,165,250,0.5)" : "none")
-            }}
-          >
-            {format(currentSelectedTime, "HH:mm")}
-            {isGoldenHour && (
-              <motion.span 
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-yellow-400 ml-2"
-              >
-                ✨
-              </motion.span>
-            )}
-            {isSilverHour && (
-              <motion.span 
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-blue-400 ml-2 text-4xl"
-              >
-                👍
-              </motion.span>
-            )}
-          </motion.div>
-          
-          <div className="flex justify-center mt-4 flex-col items-center gap-2">
-            {(isGoldenHour || isSilverHour) && (
-               <motion.div
-                 initial={{ opacity: 0, y: 10 }}
-                 animate={{ opacity: 1, y: 0 }}
-                 className={cn(
-                   "text-lg font-bold px-4 py-1 rounded-full",
-                   isGoldenHour ? "bg-yellow-400/20 text-yellow-500" : "bg-blue-400/20 text-blue-500"
-                 )}
-               >
-                 {isGoldenHour ? t.goldenHour : t.silverHour}
-               </motion.div>
-            )}
-
-            <Button
-              variant="ghost"
-               size="sm"
-               className={cn(
-                 "gap-2 transition-all duration-300",
-                 copied ? "text-green-500 bg-green-500/10" : "text-muted-foreground hover:text-foreground"
-               )}
-               onClick={copyToClipboard}
-             >
-               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-               {copied ? t.copied : t.copy}
-             </Button>
-           </div>
-        </div>
-
-        {/* The Track */}
-        <div className="relative h-24 flex items-center select-none group">
-            {/* Background Track */}
-            <div className="absolute w-full h-3 bg-secondary rounded-full overflow-hidden">
-               {/* Silver Intervals Highlights */}
-               {silverIntervals.map((interval, idx) => (
-                  <div 
-                    key={`silver-${idx}`}
-                    className="absolute h-full bg-blue-500/30"
-                    style={{
-                      left: `${(interval.start / 1440) * 100}%`,
-                      width: `${((interval.end - interval.start) / 1440) * 100}%`
-                    }}
-                  />
-               ))}
-
-               {/* Golden Intervals Highlights */}
-               {goldenIntervals.map((interval, idx) => (
-                  <div 
-                    key={`golden-${idx}`}
-                    className="absolute h-full bg-yellow-500/30"
-                    style={{
-                      left: `${(interval.start / 1440) * 100}%`,
-                      width: `${((interval.end - interval.start) / 1440) * 100}%`
-                    }}
-                  />
-               ))}
+      {/* Time Control Panel */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          {/* Time + Actions Row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-3">
+              <span className="text-4xl font-mono font-semibold tabular-nums">
+                {format(currentSelectedTime, "HH:mm")}
+              </span>
+              {(isGoldenHour || isSilverHour) && (
+                <span className={cn(
+                  "text-xs font-medium px-2 py-0.5 rounded",
+                  isGoldenHour
+                    ? "bg-[hsl(var(--golden))] text-white"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                  {isGoldenHour ? t.goldenHour : t.silverHour}
+                </span>
+              )}
             </div>
 
-            {/* Range Input (Invisible but accessible) */}
+            <div className="flex items-center gap-1">
+              {(hasGoldenTime || hasSilverTime) && (
+                <Button variant="outline" size="sm" onClick={jumpToGoldenHour} className="h-8 text-xs gap-1.5">
+                  <Zap className="w-3 h-3" />
+                  {hasGoldenTime ? t.goldenHour : t.silverHour}
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => {
+                const now = new Date();
+                setMinutes(now.getHours() * 60 + now.getMinutes());
+              }} className="h-8 text-xs gap-1.5 text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                {t.reset}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={copyToClipboard} className={cn("h-8 text-xs gap-1.5", copied && "text-[hsl(var(--work))]")}>
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {copied ? t.copied : t.copy}
+              </Button>
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div className="relative h-8">
+            <div className="absolute top-1/2 -translate-y-1/2 w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+              {silverIntervals.map((interval, idx) => (
+                <div
+                  key={`silver-${idx}`}
+                  className="absolute h-full bg-muted-foreground/30"
+                  style={{
+                    left: `${(interval.start / 1440) * 100}%`,
+                    width: `${((interval.end - interval.start) / 1440) * 100}%`
+                  }}
+                />
+              ))}
+              {goldenIntervals.map((interval, idx) => (
+                <div
+                  key={`golden-${idx}`}
+                  className="absolute h-full bg-[hsl(var(--golden))]"
+                  style={{
+                    left: `${(interval.start / 1440) * 100}%`,
+                    width: `${((interval.end - interval.start) / 1440) * 100}%`
+                  }}
+                />
+              ))}
+            </div>
+
             <input
               type="range"
               min={0}
               max={1440}
               value={minutes}
               onChange={(e) => setMinutes(Number(e.target.value))}
-              className="absolute w-full h-full opacity-0 cursor-ew-resize z-20"
+              className="absolute w-full h-full opacity-0 cursor-ew-resize z-10"
+              aria-label="Time selector"
             />
 
-            {/* Visible Thumb/Scrubber */}
-            <div 
-              className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 transition-transform duration-75 ease-out"
-              style={{ left: `${(minutes / 1440) * 100}%` }}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ left: `calc(${(minutes / 1440) * 100}% - 1px)` }}
             >
-              <div className="w-1 h-16 bg-primary shadow-[0_0_20px_rgba(59,130,246,0.5)] -translate-x-1/2 relative">
-                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 text-xs font-mono text-primary">
-                    {format(currentSelectedTime, "HH:mm")}
-                 </div>
-              </div>
+              <div className="w-0.5 h-4 bg-foreground rounded-full" />
             </div>
+          </div>
 
-            {/* Hour Markers */}
-            <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between px-[2px] pointer-events-none opacity-30">
-                {[0, 6, 12, 18, 24].map(h => (
-                   <div key={h} className="h-4 w-px bg-foreground" />
-                ))}
+          {/* Hour Labels */}
+          <div className="flex justify-between text-[10px] text-muted-foreground font-mono -mt-1">
+            <span>00:00</span>
+            <span>06:00</span>
+            <span>12:00</span>
+            <span>18:00</span>
+            <span>24:00</span>
+          </div>
+
+          {/* Best Times */}
+          {(hasGoldenTime || hasSilverTime) && (
+            <div className="flex items-center gap-2 text-xs pt-2 border-t">
+              <span className="text-muted-foreground">
+                {hasGoldenTime ? t.goldenHour : t.silverHour}:
+              </span>
+              {(hasGoldenTime ? goldenIntervals : silverIntervals).slice(0, 3).map((interval, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setMinutes(interval.start)}
+                  className="font-mono px-2 py-0.5 rounded bg-secondary hover:bg-accent transition-colors"
+                >
+                  {formatIntervalTime(interval.start)}–{formatIntervalTime(interval.end)}
+                </button>
+              ))}
             </div>
-        </div>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* 2. The City Cards (Visual Feedback) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence>
+      {/* City Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-fr">
+        <AnimatePresence mode="popLayout">
           {selectedCities.map((city) => {
             const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
             const localTimeStr = formatTime(currentSelectedTime, city.timezone);
             const offset = getOffsetString(city.timezone);
-            
-            // Visual styles based on status
+
             const isWork = status === 'work';
             const isNight = status === 'night';
-            
-            // Translated status
+
             const statusText = t[status] || status;
-            const cityName = t.cities[city.name as keyof typeof t.cities] || city.name;
-            
+            const cityName = cityNames[city.name]?.[lang] || city.name;
+
             return (
               <motion.div
                 key={city.name}
                 layout
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="h-full"
               >
-                <Card className={cn(
-                  "relative overflow-hidden border-none transition-colors duration-500",
-                  isWork ? "bg-green-950/20" : isNight ? "bg-slate-900/40" : "bg-blue-900/20"
-                )}>
-                  {/* Dynamic Background Gradient */}
-                  <div className={cn(
-                    "absolute inset-0 transition-opacity duration-700",
-                    isWork ? "bg-gradient-to-br from-green-500/10 to-transparent opacity-100" : "opacity-0"
-                  )} />
-                  <div className={cn(
-                    "absolute inset-0 transition-opacity duration-700",
-                    isNight ? "bg-gradient-to-br from-indigo-950 to-slate-950 opacity-80" : "opacity-0"
-                  )} />
-                   <div className={cn(
-                    "absolute inset-0 transition-opacity duration-700",
-                    status === 'day' ? "bg-gradient-to-br from-blue-400/10 to-orange-100/5 opacity-100" : "opacity-0"
-                  )} />
-
-                  <CardContent className="p-6 relative z-10">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-semibold text-lg">{cityName}</h3>
-                        <p className="text-xs text-muted-foreground">{city.country} • {offset}</p>
+                <Card className="group h-full">
+                  <CardContent className="p-4">
+                    {/* Header: City name + delete */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{cityName}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{offset}</span>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 -mr-2 -mt-2 text-muted-foreground/50 hover:text-foreground hover:bg-white/10 transition-all" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity -mr-1"
                         onClick={() => removeCity(city.name)}
-                        title="Remove city"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3" />
                       </Button>
                     </div>
 
-                    <div className="flex items-end justify-between">
-                      <div className="text-4xl font-bold tracking-tight font-mono tabular-nums">
-                        {localTimeStr}
-                      </div>
-                      <div className={cn(
-                        "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-300",
-                        isWork ? "bg-green-500/20 text-green-400" : isNight ? "bg-slate-700/50 text-slate-400" : "bg-blue-500/20 text-blue-300"
-                      )}>
-                        {isWork ? <Briefcase className="w-3 h-3" /> : isNight ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
-                        <span className="capitalize">{statusText}</span>
-                      </div>
+                    {/* Time */}
+                    <div className="text-3xl font-mono font-semibold tabular-nums mb-2">
+                      {localTimeStr}
+                    </div>
+
+                    {/* Status Badge - Below time */}
+                    <div className={cn(
+                      "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md",
+                      isWork && "bg-[hsl(var(--work)/0.15)] text-[hsl(var(--work))]",
+                      status === 'day' && "bg-[hsl(var(--day)/0.15)] text-[hsl(var(--day))]",
+                      isNight && "bg-secondary text-muted-foreground"
+                    )}>
+                      {isWork ? <Briefcase className="w-3 h-3" /> :
+                       isNight ? <Moon className="w-3 h-3" /> :
+                       <Sun className="w-3 h-3" />}
+                      {statusText}
                     </div>
                   </CardContent>
-                  
-                  {/* Progress bar for the day */}
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-background/20">
-                    <motion.div 
-                      className={cn("h-full", isWork ? "bg-green-500" : "bg-blue-500")}
-                      style={{ 
-                         // Calculate percentage of day passed for this city
-                         width: `${((parseInt(localTimeStr.split(':')[0]) * 60 + parseInt(localTimeStr.split(':')[1])) / 1440) * 100}%`
-                      }} 
-                    />
-                  </div>
                 </Card>
               </motion.div>
             );
           })}
-          
-          <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+
+          <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full">
             <CitySelector onSelect={addCity} selectedCities={selectedCities} lang={lang} />
           </motion.div>
         </AnimatePresence>

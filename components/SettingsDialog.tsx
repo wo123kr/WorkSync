@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Settings, RefreshCcw } from "lucide-react";
+import { Settings } from "lucide-react";
 import { translations, Language } from "@/lib/i18n";
 import { WORK_START_HOUR, WORK_END_HOUR } from "@/lib/constants";
 
@@ -34,9 +34,6 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
     const endNum = end === "" ? 0 : Math.min(23, Math.max(0, Number(end)));
     onSave(startNum, endNum);
     setOpen(false);
-    // Update local state to match the saved values (normalized)
-    setStart(String(startNum));
-    setEnd(String(endNum));
   };
 
   const handleReset = () => {
@@ -51,11 +48,6 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
     }
     const num = parseInt(value, 10);
     if (!isNaN(num)) {
-      // Prevent leading zeros by converting back to string immediately
-      // Also clamp to 0-23 for better UX while typing? 
-      // Maybe not clamp immediately to allow typing "1" then "9" without getting stuck if logic is weird, 
-      // but standard number input behavior is fine.
-      // Let's just remove leading zeros.
       setter(String(num));
     }
   };
@@ -63,20 +55,20 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Settings className="w-5 h-5" />
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+          <Settings className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[360px]">
         <DialogHeader>
           <DialogTitle>{t.globalSettings}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-6 py-4">
-          <div className="space-y-4">
-            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">{t.workHours}</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-time">{t.startTime} (0-23)</Label>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">{t.workHours}</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="start-time" className="text-xs">{t.startTime}</Label>
                 <Input
                   id="start-time"
                   type="number"
@@ -84,10 +76,11 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
                   max={23}
                   value={start}
                   onChange={(e) => handleTimeChange(e.target.value, setStart)}
+                  className="font-mono"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="end-time">{t.endTime} (0-23)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="end-time" className="text-xs">{t.endTime}</Label>
                 <Input
                   id="end-time"
                   type="number"
@@ -95,19 +88,23 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
                   max={23}
                   value={end}
                   onChange={(e) => handleTimeChange(e.target.value, setEnd)}
+                  className="font-mono"
                 />
               </div>
             </div>
           </div>
-          
-          <div className="flex justify-between items-center pt-4 border-t">
-            <Button variant="outline" size="sm" onClick={handleReset} className="gap-2 text-xs">
-              <RefreshCcw className="w-3 h-3" />
-              Reset Defaults
+
+          <div className="flex justify-between pt-2">
+            <Button variant="ghost" size="sm" onClick={handleReset} className="text-xs">
+              Reset
             </Button>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setOpen(false)}>{t.cancel}</Button>
-              <Button onClick={handleSave}>{t.save}</Button>
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+                {t.cancel}
+              </Button>
+              <Button size="sm" onClick={handleSave}>
+                {t.save}
+              </Button>
             </div>
           </div>
         </div>
