@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import { translations, Language } from "@/lib/i18n";
@@ -16,40 +15,42 @@ interface SettingsDialogProps {
   lang: Language;
 }
 
+// Convert decimal hours to HH:mm format
+const decimalToTime = (decimal: number): string => {
+  const hours = Math.floor(decimal);
+  const minutes = Math.round((decimal - hours) * 60);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+// Convert HH:mm to decimal hours
+const timeToDecimal = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours + (minutes / 60);
+};
+
 export default function SettingsDialog({ workStart, workEnd, onSave, lang }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
-  const [start, setStart] = useState(String(workStart));
-  const [end, setEnd] = useState(String(workEnd));
+  const [start, setStart] = useState(decimalToTime(workStart));
+  const [end, setEnd] = useState(decimalToTime(workEnd));
   const t = translations[lang];
 
   useEffect(() => {
     if (open) {
-      setStart(String(workStart));
-      setEnd(String(workEnd));
+      setStart(decimalToTime(workStart));
+      setEnd(decimalToTime(workEnd));
     }
   }, [open, workStart, workEnd]);
 
   const handleSave = () => {
-    const startNum = start === "" ? 0 : Math.min(23, Math.max(0, Number(start)));
-    const endNum = end === "" ? 0 : Math.min(23, Math.max(0, Number(end)));
-    onSave(startNum, endNum);
+    const startDecimal = timeToDecimal(start);
+    const endDecimal = timeToDecimal(end);
+    onSave(startDecimal, endDecimal);
     setOpen(false);
   };
 
   const handleReset = () => {
-    setStart(String(WORK_START_HOUR));
-    setEnd(String(WORK_END_HOUR));
-  };
-
-  const handleTimeChange = (value: string, setter: (val: string) => void) => {
-    if (value === "") {
-      setter("");
-      return;
-    }
-    const num = parseInt(value, 10);
-    if (!isNaN(num)) {
-      setter(String(num));
-    }
+    setStart(decimalToTime(WORK_START_HOUR));
+    setEnd(decimalToTime(WORK_END_HOUR));
   };
 
   return (
@@ -69,26 +70,22 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="start-time" className="text-xs">{t.startTime}</Label>
-                <Input
+                <input
                   id="start-time"
-                  type="number"
-                  min={0}
-                  max={23}
+                  type="time"
                   value={start}
-                  onChange={(e) => handleTimeChange(e.target.value, setStart)}
-                  className="font-mono"
+                  onChange={(e) => setStart(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 font-mono"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="end-time" className="text-xs">{t.endTime}</Label>
-                <Input
+                <input
                   id="end-time"
-                  type="number"
-                  min={0}
-                  max={23}
+                  type="time"
                   value={end}
-                  onChange={(e) => handleTimeChange(e.target.value, setEnd)}
-                  className="font-mono"
+                  onChange={(e) => setEnd(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 font-mono"
                 />
               </div>
             </div>

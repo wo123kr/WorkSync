@@ -1,7 +1,12 @@
 import { toZonedTime, format } from "date-fns-tz";
-import { getHours, addMinutes, startOfDay } from "date-fns";
+import { getHours, getMinutes, addMinutes, startOfDay } from "date-fns";
 import { WORK_START_HOUR, WORK_END_HOUR } from "./constants";
 import { City, TimeSlot, TimeStatus } from "./types";
+
+// Get decimal hours (e.g., 9:30 = 9.5)
+function getDecimalHours(date: Date): number {
+  return getHours(date) + getMinutes(date) / 60;
+}
 
 export function getLocalTime(date: Date, timezone: string): Date {
   return toZonedTime(date, timezone);
@@ -15,22 +20,22 @@ export function formatTime(date: Date, timezone: string, fmt: string = "HH:mm"):
 
 export function isWorkTime(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): boolean {
   const localDate = toZonedTime(date, timezone);
-  const hours = getHours(localDate);
-  return hours >= workStart && hours < workEnd;
+  const decimalHours = getDecimalHours(localDate);
+  return decimalHours >= workStart && decimalHours < workEnd;
 }
 
 export function getTimeStatus(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): 'work' | 'day' | 'night' {
   const localDate = toZonedTime(date, timezone);
-  const hours = getHours(localDate);
-  
-  if (hours >= workStart && hours < workEnd) {
+  const decimalHours = getDecimalHours(localDate);
+
+  if (decimalHours >= workStart && decimalHours < workEnd) {
     return 'work';
   }
-  
-  if (hours >= 6 && hours < 22) { // Assuming day is 6am to 10pm roughly for simplicity, excluding work hours
+
+  if (decimalHours >= 6 && decimalHours < 22) { // Assuming day is 6am to 10pm roughly for simplicity, excluding work hours
     return 'day';
   }
-  
+
   return 'night';
 }
 
