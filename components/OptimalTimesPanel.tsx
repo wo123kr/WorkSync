@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Briefcase, Moon, Sun, Star, ChevronDown } from "lucide-react";
+import { Briefcase, Moon, Sun, Sunrise, Sunset, Star, ChevronDown } from "lucide-react";
 import { TimeSlot } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Language, translations, cityNames } from "@/lib/i18n";
@@ -33,7 +33,9 @@ export default function OptimalTimesPanel({
   const StatusIcon = ({ status }: { status: 'work' | 'morning' | 'afternoon' | 'evening' | 'night' }) => {
     if (status === 'work') return <Briefcase className="w-3 h-3" />;
     if (status === 'night') return <Moon className="w-3 h-3" />;
-    return <Sun className="w-3 h-3" />; // morning, afternoon, or evening
+    if (status === 'morning') return <Sunrise className="w-3 h-3" />;
+    if (status === 'evening') return <Sunset className="w-3 h-3" />;
+    return <Sun className="w-3 h-3" />; // afternoon
   };
 
   const bestSlot = timeSlots[0];

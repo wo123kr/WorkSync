@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Moon, Sun, Briefcase, Clock, Zap } from "lucide-react";
+import { X, Moon, Sun, Sunset, Sunrise, Briefcase, Clock, Zap } from "lucide-react";
 import { CITIES, WORK_START_HOUR, WORK_END_HOUR, COUNTRY_FLAGS } from "@/lib/constants";
 import { getTimeStatus, formatTime, getOffsetString, getTopTimeSlots } from "@/lib/time-utils";
 import { addMinutes, startOfDay, format } from "date-fns";
@@ -581,6 +581,8 @@ WorkSync`;
 
             const isWork = status === 'work';
             const isNight = status === 'night';
+            const isMorning = status === 'morning';
+            const isEvening = status === 'evening';
             const isAwake = status === 'morning' || status === 'afternoon' || status === 'evening';
 
             const statusText = t[status] || status;
@@ -630,6 +632,8 @@ WorkSync`;
                     )}>
                       {isWork ? <Briefcase className="w-3 h-3" /> :
                        isNight ? <Moon className="w-3 h-3" /> :
+                       isMorning ? <Sunrise className="w-3 h-3" /> :
+                       isEvening ? <Sunset className="w-3 h-3" /> :
                        <Sun className="w-3 h-3" />}
                       {statusText}
                     </div>
