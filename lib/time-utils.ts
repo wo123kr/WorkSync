@@ -24,7 +24,7 @@ export function isWorkTime(date: Date, timezone: string, workStart: number = WOR
   return decimalHours >= workStart && decimalHours < workEnd;
 }
 
-export function getTimeStatus(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): 'work' | 'day' | 'night' {
+export function getTimeStatus(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): 'work' | 'morning' | 'afternoon' | 'night' {
   const localDate = toZonedTime(date, timezone);
   const decimalHours = getDecimalHours(localDate);
 
@@ -32,11 +32,15 @@ export function getTimeStatus(date: Date, timezone: string, workStart: number = 
     return 'work';
   }
 
-  if (decimalHours >= 6 && decimalHours < 20) { // Day is 6am to 8pm (reasonable waking hours outside work)
-    return 'day';
+  if (decimalHours >= 6 && decimalHours < 12) {
+    return 'morning'; // 오전: 6:00-12:00
   }
 
-  return 'night';
+  if (decimalHours >= 12 && decimalHours < 20) {
+    return 'afternoon'; // 오후: 12:00-20:00
+  }
+
+  return 'night'; // 새벽: 20:00-6:00
 }
 
 export function getOffsetString(timezone: string): string {
@@ -67,8 +71,8 @@ export function getTopTimeSlots(
     cities.forEach((city) => {
       const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
       if (status === 'work') score += 2;
-      else if (status === 'day') score += 1;
-      else score -= 2;
+      else if (status === 'morning' || status === 'afternoon') score += 1;
+      else score -= 2; // night
     });
     if (score > maxScore) maxScore = score;
   }
@@ -88,8 +92,8 @@ export function getTopTimeSlots(
     cities.forEach((city) => {
       const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
       if (status === 'work') score += 2;
-      else if (status === 'day') score += 1;
-      else score -= 2;
+      else if (status === 'morning' || status === 'afternoon') score += 1;
+      else score -= 2; // night
     });
 
     const isSilver = !isGolden && score === maxScore && maxScore > 0;

@@ -2,7 +2,7 @@ import { CITIES } from "./constants";
 
 export type City = typeof CITIES[number];
 
-export type TimeStatus = 'work' | 'day' | 'night';
+export type TimeStatus = 'work' | 'morning' | 'afternoon' | 'night';
 
 export interface TimeSlot {
   start: number; // minutes from 00:00

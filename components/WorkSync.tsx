@@ -150,8 +150,9 @@ export default function WorkSync() {
   const copyToClipboard = () => {
     const statusEmoji = (status: string) => {
       if (status === 'work') return '🏢';
-      if (status === 'day') return '☀️';
-      return '🌙';
+      if (status === 'morning') return '🌅';
+      if (status === 'afternoon') return '☀️';
+      return '🌙'; // night
     };
 
     const citiesStr = selectedCities.map(city => {
@@ -228,7 +229,7 @@ WorkSync`;
       selectedCities.forEach((city) => {
         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
         if (status === 'work') score += 2;
-        else if (status === 'day') score += 1;
+        else if (status === 'morning' || status === 'afternoon') score += 1;
         else score -= 2;
       });
       if (score > max) max = score;
@@ -242,7 +243,7 @@ WorkSync`;
     selectedCities.forEach((city) => {
       const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
       if (status === 'work') score += 2;
-      else if (status === 'day') score += 1;
+      else if (status === 'morning' || status === 'afternoon') score += 1;
       else score -= 2;
     });
     return score;
@@ -294,7 +295,7 @@ WorkSync`;
       selectedCities.forEach((city) => {
         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
         if (status === 'work') score += 2;
-        else if (status === 'day') score += 1;
+        else if (status === 'morning' || status === 'afternoon') score += 1;
         else score -= 2;
       });
 
@@ -379,7 +380,7 @@ WorkSync`;
 
   // Status counts for visual indicator
   const statusCounts = useMemo(() => {
-    const counts = { work: 0, day: 0, night: 0 };
+    const counts = { work: 0, morning: 0, afternoon: 0, night: 0 };
     selectedCities.forEach(city => {
       const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
       counts[status]++;
@@ -431,10 +432,10 @@ WorkSync`;
                         {statusCounts.work}
                       </span>
                     )}
-                    {statusCounts.day > 0 && (
+                    {(statusCounts.morning + statusCounts.afternoon) > 0 && (
                       <span className="flex items-center gap-1 text-[10px] text-[hsl(var(--day))]">
                         <Sun className="w-3 h-3" />
-                        {statusCounts.day}
+                        {statusCounts.morning + statusCounts.afternoon}
                       </span>
                     )}
                     {statusCounts.night > 0 && (
@@ -583,6 +584,7 @@ WorkSync`;
 
             const isWork = status === 'work';
             const isNight = status === 'night';
+            const isMorningOrAfternoon = status === 'morning' || status === 'afternoon';
 
             const statusText = t[status] || status;
             const cityName = cityNames[city.name]?.[lang] || city.name;
@@ -626,7 +628,7 @@ WorkSync`;
                     <div className={cn(
                       "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md",
                       isWork && "bg-[hsl(var(--work)/0.15)] text-[hsl(var(--work))]",
-                      status === 'day' && "bg-[hsl(var(--day)/0.15)] text-[hsl(var(--day))]",
+                      isMorningOrAfternoon && "bg-[hsl(var(--day)/0.15)] text-[hsl(var(--day))]",
                       isNight && "bg-secondary text-muted-foreground"
                     )}>
                       {isWork ? <Briefcase className="w-3 h-3" /> :

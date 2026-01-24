@@ -62,8 +62,9 @@ export function generateGoogleCalendarURL(params: CalendarParams): string {
   // Status emoji helper
   const statusEmoji = (status: string) => {
     if (status === 'work') return '🏢';
-    if (status === 'day') return '☀️';
-    return '🌙';
+    if (status === 'morning') return '🌅';
+    if (status === 'afternoon') return '☀️';
+    return '🌙'; // night
   };
 
   // Build description with city times and status
