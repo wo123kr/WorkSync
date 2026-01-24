@@ -8,7 +8,8 @@ export function getLocalTime(date: Date, timezone: string): Date {
 
 export function formatTime(date: Date, timezone: string, fmt: string = "HH:mm"): string {
   // format from date-fns-tz handles timezone
-  return format(date, fmt, { timeZone: timezone });
+  const zonedDate = toZonedTime(date, timezone);
+  return format(zonedDate, fmt, { timeZone: timezone });
 }
 
 export function isWorkTime(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): boolean {
