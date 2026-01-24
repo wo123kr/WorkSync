@@ -172,7 +172,9 @@ WorkSync`;
       cities: selectedCities,
       durationHours: 1,
       lang,
-      isGoldenHour
+      isGoldenHour,
+      workStart,
+      workEnd
     });
   };
 
