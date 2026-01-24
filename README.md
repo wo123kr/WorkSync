@@ -1,7 +1,7 @@
 # WorkSync
 
 ## 1. 팀 정보
-- **팀명**: WorkSync Team
+- **팀명**: Team ChronoShift
 - **팀원**: 제갈진우
 
 ## 2. 프로젝트 소개
