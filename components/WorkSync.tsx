@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X, Moon, Sun, Briefcase, Clock, Zap } from "lucide-react";
-import { CITIES, WORK_START_HOUR, WORK_END_HOUR } from "@/lib/constants";
+import { CITIES, WORK_START_HOUR, WORK_END_HOUR, COUNTRY_FLAGS } from "@/lib/constants";
 import { getTimeStatus, formatTime, getOffsetString, getTopTimeSlots } from "@/lib/time-utils";
 import { addMinutes, startOfDay, format } from "date-fns";
 import CitySelector from "./CitySelector";
@@ -38,8 +38,22 @@ export default function WorkSync() {
   const [workEnd, setWorkEnd] = useState(WORK_END_HOUR);
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [seconds, setSeconds] = useState(0);
 
   const t = translations[lang];
+
+  // Real-time seconds update
+  useEffect(() => {
+    if (!isClient) return;
+
+    const updateSeconds = () => {
+      setSeconds(new Date().getSeconds());
+    };
+
+    updateSeconds();
+    const interval = setInterval(updateSeconds, 1000);
+    return () => clearInterval(interval);
+  }, [isClient]);
 
   useEffect(() => {
     setIsClient(true);
@@ -395,7 +409,7 @@ WorkSync`;
             <div className="flex items-center gap-4">
               <div className="flex flex-col">
                 <span className="text-4xl font-mono font-semibold tabular-nums">
-                  {format(currentSelectedTime, "HH:mm")}
+                  {format(currentSelectedTime, "HH:mm")}<span className="text-2xl text-muted-foreground">:{seconds.toString().padStart(2, '0')}</span>
                 </span>
                 {/* Status Summary */}
                 {selectedCities.length > 0 && (
@@ -555,12 +569,14 @@ WorkSync`;
             const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
             const localTimeStr = formatTime(currentSelectedTime, city.timezone);
             const offset = getOffsetString(city.timezone);
+            const flag = COUNTRY_FLAGS[city.country] || "🌍";
 
             const isWork = status === 'work';
             const isNight = status === 'night';
 
             const statusText = t[status] || status;
             const cityName = cityNames[city.name]?.[lang] || city.name;
+            const secondsStr = seconds.toString().padStart(2, '0');
 
             return (
               <motion.div
@@ -574,9 +590,10 @@ WorkSync`;
               >
                 <Card className="group h-full">
                   <CardContent className="p-4">
-                    {/* Header: City name + delete */}
+                    {/* Header: Flag + City name + delete */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
+                        <span className="text-base">{flag}</span>
                         <span className="font-medium text-sm">{cityName}</span>
                         <span className="text-[10px] text-muted-foreground font-mono">{offset}</span>
                       </div>
@@ -590,9 +607,9 @@ WorkSync`;
                       </Button>
                     </div>
 
-                    {/* Time */}
+                    {/* Time with seconds */}
                     <div className="text-3xl font-mono font-semibold tabular-nums mb-2">
-                      {localTimeStr}
+                      {localTimeStr}<span className="text-xl text-muted-foreground">:{secondsStr}</span>
                     </div>
 
                     {/* Status Badge - Below time */}
