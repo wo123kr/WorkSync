@@ -36,11 +36,11 @@ export function getTimeStatus(date: Date, timezone: string, workStart: number = 
     return 'morning'; // 오전: 6:00-12:00
   }
 
-  if (decimalHours >= 12 && decimalHours < 20) {
-    return 'afternoon'; // 오후: 12:00-20:00
+  if (decimalHours >= 12) {
+    return 'afternoon'; // 오후: 12:00-24:00
   }
 
-  return 'night'; // 새벽: 20:00-6:00
+  return 'night'; // 새벽: 0:00-6:00
 }
 
 export function getOffsetString(timezone: string): string {
