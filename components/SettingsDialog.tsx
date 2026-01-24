@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -18,18 +18,46 @@ interface SettingsDialogProps {
 
 export default function SettingsDialog({ workStart, workEnd, onSave, lang }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
-  const [start, setStart] = useState(workStart);
-  const [end, setEnd] = useState(workEnd);
+  const [start, setStart] = useState(String(workStart));
+  const [end, setEnd] = useState(String(workEnd));
   const t = translations[lang];
 
+  useEffect(() => {
+    if (open) {
+      setStart(String(workStart));
+      setEnd(String(workEnd));
+    }
+  }, [open, workStart, workEnd]);
+
   const handleSave = () => {
-    onSave(Number(start), Number(end));
+    const startNum = start === "" ? 0 : Math.min(23, Math.max(0, Number(start)));
+    const endNum = end === "" ? 0 : Math.min(23, Math.max(0, Number(end)));
+    onSave(startNum, endNum);
     setOpen(false);
+    // Update local state to match the saved values (normalized)
+    setStart(String(startNum));
+    setEnd(String(endNum));
   };
 
   const handleReset = () => {
-    setStart(WORK_START_HOUR);
-    setEnd(WORK_END_HOUR);
+    setStart(String(WORK_START_HOUR));
+    setEnd(String(WORK_END_HOUR));
+  };
+
+  const handleTimeChange = (value: string, setter: (val: string) => void) => {
+    if (value === "") {
+      setter("");
+      return;
+    }
+    const num = parseInt(value, 10);
+    if (!isNaN(num)) {
+      // Prevent leading zeros by converting back to string immediately
+      // Also clamp to 0-23 for better UX while typing? 
+      // Maybe not clamp immediately to allow typing "1" then "9" without getting stuck if logic is weird, 
+      // but standard number input behavior is fine.
+      // Let's just remove leading zeros.
+      setter(String(num));
+    }
   };
 
   return (
@@ -55,7 +83,7 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
                   min={0}
                   max={23}
                   value={start}
-                  onChange={(e) => setStart(Number(e.target.value))}
+                  onChange={(e) => handleTimeChange(e.target.value, setStart)}
                 />
               </div>
               <div className="space-y-2">
@@ -66,7 +94,7 @@ export default function SettingsDialog({ workStart, workEnd, onSave, lang }: Set
                   min={0}
                   max={23}
                   value={end}
-                  onChange={(e) => setEnd(Number(e.target.value))}
+                  onChange={(e) => handleTimeChange(e.target.value, setEnd)}
                 />
               </div>
             </div>
