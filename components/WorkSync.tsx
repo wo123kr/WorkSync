@@ -1,19 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Moon, Sun, Briefcase, Copy, Check, Clock, Zap } from "lucide-react";
+import { X, Moon, Sun, Briefcase, Copy, Check, Clock, Zap, Link2, Calendar } from "lucide-react";
 import { CITIES, WORK_START_HOUR, WORK_END_HOUR } from "@/lib/constants";
-import { getTimeStatus, formatTime, getOffsetString } from "@/lib/time-utils";
+import { getTimeStatus, formatTime, getOffsetString, getTopTimeSlots } from "@/lib/time-utils";
 import { addMinutes, startOfDay, format } from "date-fns";
 import CitySelector from "./CitySelector";
 import LanguageSelector from "./LanguageSelector";
 import SettingsDialog from "./SettingsDialog";
 import ThemeToggle from "./ThemeToggle";
+import OptimalTimesPanel from "./OptimalTimesPanel";
 import { cn } from "@/lib/utils";
 import { translations, Language, cityNames } from "@/lib/i18n";
+import { parseURLParams, generateShareableURL, resolveCitiesFromNames } from "@/lib/url-utils";
+import { openGoogleCalendar } from "@/lib/calendar-utils";
+import { City } from "@/lib/types";
 
 const DEFAULT_CITIES = [
   CITIES.find(c => c.name === "Seoul")!,
@@ -22,45 +27,87 @@ const DEFAULT_CITIES = [
 ];
 
 export default function WorkSync() {
-  const [selectedCities, setSelectedCities] = useState(DEFAULT_CITIES);
+  const searchParams = useSearchParams();
+
+  const [selectedCities, setSelectedCities] = useState<City[]>(DEFAULT_CITIES);
   const [minutes, setMinutes] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [lang, setLang] = useState<Language>('ko');
   const [workStart, setWorkStart] = useState(WORK_START_HOUR);
   const [workEnd, setWorkEnd] = useState(WORK_END_HOUR);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const t = translations[lang];
 
   useEffect(() => {
     setIsClient(true);
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    setMinutes(currentMinutes);
 
-    const savedCities = localStorage.getItem('worksync-cities');
-    if (savedCities) {
-      try {
-        const parsed = JSON.parse(savedCities);
-        const mapped = parsed.map((p: any) => CITIES.find(c => c.name === p.name)).filter(Boolean);
-        if (mapped.length > 0) setSelectedCities(mapped);
-      } catch (e) { console.error('Failed to parse saved cities', e); }
+    // Priority: URL params > localStorage > defaults
+    const urlState = parseURLParams(searchParams);
+    let hasURLParams = false;
+
+    // Handle cities from URL
+    if (urlState.cities && urlState.cities.length > 0) {
+      const resolvedCities = resolveCitiesFromNames(urlState.cities);
+      if (resolvedCities.length > 0) {
+        setSelectedCities(resolvedCities);
+        hasURLParams = true;
+      }
     }
 
-    const savedLang = localStorage.getItem('worksync-lang');
-    if (savedLang && ['ko', 'en', 'zh', 'ja'].includes(savedLang)) {
-      setLang(savedLang as Language);
+    // Handle time from URL
+    if (urlState.minutes !== undefined) {
+      setMinutes(urlState.minutes);
+      hasURLParams = true;
+    } else {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      setMinutes(currentMinutes);
     }
 
-    const savedSettings = localStorage.getItem('worksync-settings');
-    if (savedSettings) {
-      try {
-        const { start, end } = JSON.parse(savedSettings);
-        setWorkStart(start);
-        setWorkEnd(end);
-      } catch (e) { console.error('Failed to parse saved settings', e); }
+    // Handle work hours from URL
+    if (urlState.workStart !== undefined) {
+      setWorkStart(urlState.workStart);
+      hasURLParams = true;
     }
-  }, []);
+    if (urlState.workEnd !== undefined) {
+      setWorkEnd(urlState.workEnd);
+      hasURLParams = true;
+    }
+
+    // Handle language from URL
+    if (urlState.lang) {
+      setLang(urlState.lang as Language);
+      hasURLParams = true;
+    }
+
+    // Only load from localStorage if no URL params
+    if (!hasURLParams) {
+      const savedCities = localStorage.getItem('worksync-cities');
+      if (savedCities) {
+        try {
+          const parsed = JSON.parse(savedCities);
+          const mapped = parsed.map((p: any) => CITIES.find(c => c.name === p.name)).filter(Boolean);
+          if (mapped.length > 0) setSelectedCities(mapped);
+        } catch (e) { console.error('Failed to parse saved cities', e); }
+      }
+
+      const savedLang = localStorage.getItem('worksync-lang');
+      if (savedLang && ['ko', 'en', 'zh', 'ja'].includes(savedLang)) {
+        setLang(savedLang as Language);
+      }
+
+      const savedSettings = localStorage.getItem('worksync-settings');
+      if (savedSettings) {
+        try {
+          const { start, end } = JSON.parse(savedSettings);
+          setWorkStart(start);
+          setWorkEnd(end);
+        } catch (e) { console.error('Failed to parse saved settings', e); }
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -91,7 +138,24 @@ export default function WorkSync() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const addCity = (city: typeof CITIES[0]) => {
+  const copyShareLink = () => {
+    const url = generateShareableURL(selectedCities, minutes, workStart, workEnd, lang);
+    navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const addToCalendar = () => {
+    openGoogleCalendar({
+      selectedTime: currentSelectedTime,
+      cities: selectedCities,
+      durationHours: 1,
+      lang,
+      isGoldenHour
+    });
+  };
+
+  const addCity = (city: City) => {
     if (!selectedCities.find((c) => c.name === city.name)) {
       setSelectedCities([...selectedCities, city]);
     }
@@ -207,6 +271,11 @@ export default function WorkSync() {
     return intervals;
   }, [baseDate, selectedCities, isClient, workStart, workEnd, maxScore]);
 
+  const topTimeSlots = useMemo(() => {
+    if (!isClient || selectedCities.length === 0) return [];
+    return getTopTimeSlots(selectedCities, baseDate, workStart, workEnd, 3);
+  }, [baseDate, selectedCities, isClient, workStart, workEnd]);
+
   const formatIntervalTime = (mins: number) => {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
@@ -285,6 +354,14 @@ export default function WorkSync() {
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                 {copied ? t.copied : t.copy}
               </Button>
+              <Button variant="ghost" size="sm" onClick={copyShareLink} className={cn("h-8 text-xs gap-1.5", linkCopied && "text-[hsl(var(--work))]")}>
+                {linkCopied ? <Check className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
+                {linkCopied ? t.linkCopied : t.shareLink}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={addToCalendar} className="h-8 text-xs gap-1.5">
+                <Calendar className="w-3 h-3" />
+                {t.calendar}
+              </Button>
             </div>
           </div>
 
@@ -359,6 +436,13 @@ export default function WorkSync() {
           )}
         </CardContent>
       </Card>
+
+      {/* Optimal Times Panel */}
+      <OptimalTimesPanel
+        timeSlots={topTimeSlots}
+        lang={lang}
+        onSelectTime={setMinutes}
+      />
 
       {/* City Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-fr">
