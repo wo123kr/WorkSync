@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Moon, Sun, Briefcase, Copy, Check, Clock, Zap, Link2, Calendar } from "lucide-react";
+import { X, Moon, Sun, Briefcase, Clock, Zap } from "lucide-react";
 import { CITIES, WORK_START_HOUR, WORK_END_HOUR } from "@/lib/constants";
 import { getTimeStatus, formatTime, getOffsetString, getTopTimeSlots } from "@/lib/time-utils";
 import { addMinutes, startOfDay, format } from "date-fns";
@@ -14,6 +14,7 @@ import LanguageSelector from "./LanguageSelector";
 import SettingsDialog from "./SettingsDialog";
 import ThemeToggle from "./ThemeToggle";
 import OptimalTimesPanel from "./OptimalTimesPanel";
+import ShareMenu from "./ShareMenu";
 import { cn } from "@/lib/utils";
 import { translations, Language, cityNames } from "@/lib/i18n";
 import { parseURLParams, generateShareableURL, resolveCitiesFromNames } from "@/lib/url-utils";
@@ -276,6 +277,45 @@ export default function WorkSync() {
     return getTopTimeSlots(selectedCities, baseDate, workStart, workEnd, 3);
   }, [baseDate, selectedCities, isClient, workStart, workEnd]);
 
+  // Keyboard shortcuts for power users
+  useEffect(() => {
+    if (!isClient) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          setMinutes(m => Math.max(0, m - (e.shiftKey ? 60 : 15)));
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          setMinutes(m => Math.min(1440, m + (e.shiftKey ? 60 : 15)));
+          break;
+        case 'g':
+        case 'G':
+          // Jump to golden/silver hour
+          if (goldenIntervals.length > 0) {
+            setMinutes(goldenIntervals[0].start);
+          } else if (silverIntervals.length > 0) {
+            setMinutes(silverIntervals[0].start);
+          }
+          break;
+        case 'n':
+        case 'N':
+          // Reset to now
+          const now = new Date();
+          setMinutes(now.getHours() * 60 + now.getMinutes());
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isClient, goldenIntervals, silverIntervals]);
+
   const formatIntervalTime = (mins: number) => {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
@@ -294,6 +334,16 @@ export default function WorkSync() {
 
   const hasGoldenTime = goldenIntervals.length > 0;
   const hasSilverTime = silverIntervals.length > 0 && !hasGoldenTime;
+
+  // Status counts for visual indicator
+  const statusCounts = useMemo(() => {
+    const counts = { work: 0, day: 0, night: 0 };
+    selectedCities.forEach(city => {
+      const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
+      counts[status]++;
+    });
+    return counts;
+  }, [currentSelectedTime, selectedCities, workStart, workEnd]);
 
   return (
     <div className="space-y-6">
@@ -320,13 +370,38 @@ export default function WorkSync() {
         <CardContent className="p-4 space-y-4">
           {/* Time + Actions Row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-mono font-semibold tabular-nums">
-                {format(currentSelectedTime, "HH:mm")}
-              </span>
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col">
+                <span className="text-4xl font-mono font-semibold tabular-nums">
+                  {format(currentSelectedTime, "HH:mm")}
+                </span>
+                {/* Status Summary */}
+                {selectedCities.length > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
+                    {statusCounts.work > 0 && (
+                      <span className="flex items-center gap-1 text-[10px] text-[hsl(var(--work))]">
+                        <Briefcase className="w-3 h-3" />
+                        {statusCounts.work}
+                      </span>
+                    )}
+                    {statusCounts.day > 0 && (
+                      <span className="flex items-center gap-1 text-[10px] text-[hsl(var(--day))]">
+                        <Sun className="w-3 h-3" />
+                        {statusCounts.day}
+                      </span>
+                    )}
+                    {statusCounts.night > 0 && (
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Moon className="w-3 h-3" />
+                        {statusCounts.night}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               {(isGoldenHour || isSilverHour) && (
                 <span className={cn(
-                  "text-xs font-medium px-2 py-0.5 rounded",
+                  "text-xs font-medium px-2 py-0.5 rounded self-start mt-1",
                   isGoldenHour
                     ? "bg-[hsl(var(--golden))] text-white"
                     : "bg-muted text-muted-foreground"
@@ -336,11 +411,11 @@ export default function WorkSync() {
               )}
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {(hasGoldenTime || hasSilverTime) && (
                 <Button variant="outline" size="sm" onClick={jumpToGoldenHour} className="h-8 text-xs gap-1.5">
                   <Zap className="w-3 h-3" />
-                  {hasGoldenTime ? t.goldenHour : t.silverHour}
+                  <span className="hidden sm:inline">{hasGoldenTime ? t.goldenHour : t.silverHour}</span>
                 </Button>
               )}
               <Button variant="ghost" size="sm" onClick={() => {
@@ -348,20 +423,23 @@ export default function WorkSync() {
                 setMinutes(now.getHours() * 60 + now.getMinutes());
               }} className="h-8 text-xs gap-1.5 text-muted-foreground">
                 <Clock className="w-3 h-3" />
-                {t.reset}
+                <span className="hidden sm:inline">{t.reset}</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={copyToClipboard} className={cn("h-8 text-xs gap-1.5", copied && "text-[hsl(var(--work))]")}>
-                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied ? t.copied : t.copy}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={copyShareLink} className={cn("h-8 text-xs gap-1.5", linkCopied && "text-[hsl(var(--work))]")}>
-                {linkCopied ? <Check className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
-                {linkCopied ? t.linkCopied : t.shareLink}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={addToCalendar} className="h-8 text-xs gap-1.5">
-                <Calendar className="w-3 h-3" />
-                {t.calendar}
-              </Button>
+              <ShareMenu
+                onCopyText={copyToClipboard}
+                onCopyLink={copyShareLink}
+                onAddToCalendar={addToCalendar}
+                copied={copied}
+                linkCopied={linkCopied}
+                labels={{
+                  share: t.share,
+                  copy: t.copy,
+                  copied: t.copied,
+                  shareLink: t.shareLink,
+                  linkCopied: t.linkCopied,
+                  calendar: t.calendar,
+                }}
+              />
             </div>
           </div>
 
@@ -408,11 +486,15 @@ export default function WorkSync() {
             </div>
           </div>
 
-          {/* Hour Labels */}
-          <div className="flex justify-between text-[10px] text-muted-foreground font-mono -mt-1">
+          {/* Hour Labels + Keyboard Hints */}
+          <div className="flex justify-between items-end text-[10px] text-muted-foreground font-mono -mt-1">
             <span>00:00</span>
             <span>06:00</span>
-            <span>12:00</span>
+            <span className="hidden md:flex flex-col items-center gap-0.5">
+              <span>12:00</span>
+              <span className="text-[8px] opacity-60">← → G N</span>
+            </span>
+            <span className="md:hidden">12:00</span>
             <span>18:00</span>
             <span>24:00</span>
           </div>
