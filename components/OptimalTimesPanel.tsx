@@ -30,10 +30,10 @@ export default function OptimalTimesPanel({
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  const StatusIcon = ({ status }: { status: 'work' | 'morning' | 'afternoon' | 'night' }) => {
+  const StatusIcon = ({ status }: { status: 'work' | 'morning' | 'afternoon' | 'evening' | 'night' }) => {
     if (status === 'work') return <Briefcase className="w-3 h-3" />;
     if (status === 'night') return <Moon className="w-3 h-3" />;
-    return <Sun className="w-3 h-3" />; // morning or afternoon
+    return <Sun className="w-3 h-3" />; // morning, afternoon, or evening
   };
 
   const bestSlot = timeSlots[0];
@@ -75,7 +75,7 @@ export default function OptimalTimesPanel({
                 className={cn(
                   "flex items-center gap-1 text-xs",
                   cs.status === 'work' && "text-[hsl(var(--work))]",
-                  (cs.status === 'morning' || cs.status === 'afternoon') && "text-[hsl(var(--day))]",
+                  (cs.status === 'morning' || cs.status === 'afternoon' || cs.status === 'evening') && "text-[hsl(var(--day))]",
                   cs.status === 'night' && "text-muted-foreground"
                 )}
               >

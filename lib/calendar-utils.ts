@@ -64,7 +64,8 @@ export function generateGoogleCalendarURL(params: CalendarParams): string {
     if (status === 'work') return '🏢';
     if (status === 'morning') return '🌅';
     if (status === 'afternoon') return '☀️';
-    return '🌙'; // night
+    if (status === 'evening') return '🌆';
+    return '🌙'; // night (새벽)
   };
 
   // Build description with city times and status

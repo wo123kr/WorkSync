@@ -24,7 +24,7 @@ export function isWorkTime(date: Date, timezone: string, workStart: number = WOR
   return decimalHours >= workStart && decimalHours < workEnd;
 }
 
-export function getTimeStatus(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): 'work' | 'morning' | 'afternoon' | 'night' {
+export function getTimeStatus(date: Date, timezone: string, workStart: number = WORK_START_HOUR, workEnd: number = WORK_END_HOUR): 'work' | 'morning' | 'afternoon' | 'evening' | 'night' {
   const localDate = toZonedTime(date, timezone);
   const decimalHours = getDecimalHours(localDate);
 
@@ -36,8 +36,12 @@ export function getTimeStatus(date: Date, timezone: string, workStart: number = 
     return 'morning'; // 오전: 6:00-12:00
   }
 
-  if (decimalHours >= 12) {
-    return 'afternoon'; // 오후: 12:00-24:00
+  if (decimalHours >= 12 && decimalHours < 18) {
+    return 'afternoon'; // 오후: 12:00-18:00
+  }
+
+  if (decimalHours >= 18) {
+    return 'evening'; // 밤: 18:00-24:00
   }
 
   return 'night'; // 새벽: 0:00-6:00
@@ -71,7 +75,7 @@ export function getTopTimeSlots(
     cities.forEach((city) => {
       const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
       if (status === 'work') score += 2;
-      else if (status === 'morning' || status === 'afternoon') score += 1;
+      else if (status === 'morning' || status === 'afternoon' || status === 'evening') score += 1;
       else score -= 2; // night
     });
     if (score > maxScore) maxScore = score;
@@ -92,7 +96,7 @@ export function getTopTimeSlots(
     cities.forEach((city) => {
       const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
       if (status === 'work') score += 2;
-      else if (status === 'morning' || status === 'afternoon') score += 1;
+      else if (status === 'morning' || status === 'afternoon' || status === 'evening') score += 1;
       else score -= 2; // night
     });
 

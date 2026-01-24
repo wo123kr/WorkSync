@@ -152,7 +152,8 @@ export default function WorkSync() {
       if (status === 'work') return '🏢';
       if (status === 'morning') return '🌅';
       if (status === 'afternoon') return '☀️';
-      return '🌙'; // night
+      if (status === 'evening') return '🌆';
+      return '🌙'; // night (새벽)
     };
 
     const citiesStr = selectedCities.map(city => {
@@ -229,7 +230,7 @@ WorkSync`;
       selectedCities.forEach((city) => {
         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
         if (status === 'work') score += 2;
-        else if (status === 'morning' || status === 'afternoon') score += 1;
+        else if (status === 'morning' || status === 'afternoon' || status === 'evening') score += 1;
         else score -= 2;
       });
       if (score > max) max = score;
@@ -243,7 +244,7 @@ WorkSync`;
     selectedCities.forEach((city) => {
       const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
       if (status === 'work') score += 2;
-      else if (status === 'morning' || status === 'afternoon') score += 1;
+      else if (status === 'morning' || status === 'afternoon' || status === 'evening') score += 1;
       else score -= 2;
     });
     return score;
@@ -295,7 +296,7 @@ WorkSync`;
       selectedCities.forEach((city) => {
         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
         if (status === 'work') score += 2;
-        else if (status === 'morning' || status === 'afternoon') score += 1;
+        else if (status === 'morning' || status === 'afternoon' || status === 'evening') score += 1;
         else score -= 2;
       });
 
@@ -380,7 +381,7 @@ WorkSync`;
 
   // Status counts for visual indicator
   const statusCounts = useMemo(() => {
-    const counts = { work: 0, morning: 0, afternoon: 0, night: 0 };
+    const counts = { work: 0, morning: 0, afternoon: 0, evening: 0, night: 0 };
     selectedCities.forEach(city => {
       const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
       counts[status]++;
@@ -432,10 +433,10 @@ WorkSync`;
                         {statusCounts.work}
                       </span>
                     )}
-                    {(statusCounts.morning + statusCounts.afternoon) > 0 && (
+                    {(statusCounts.morning + statusCounts.afternoon + statusCounts.evening) > 0 && (
                       <span className="flex items-center gap-1 text-[10px] text-[hsl(var(--day))]">
                         <Sun className="w-3 h-3" />
-                        {statusCounts.morning + statusCounts.afternoon}
+                        {statusCounts.morning + statusCounts.afternoon + statusCounts.evening}
                       </span>
                     )}
                     {statusCounts.night > 0 && (
@@ -584,7 +585,7 @@ WorkSync`;
 
             const isWork = status === 'work';
             const isNight = status === 'night';
-            const isMorningOrAfternoon = status === 'morning' || status === 'afternoon';
+            const isAwake = status === 'morning' || status === 'afternoon' || status === 'evening';
 
             const statusText = t[status] || status;
             const cityName = cityNames[city.name]?.[lang] || city.name;
@@ -628,7 +629,7 @@ WorkSync`;
                     <div className={cn(
                       "inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md",
                       isWork && "bg-[hsl(var(--work)/0.15)] text-[hsl(var(--work))]",
-                      isMorningOrAfternoon && "bg-[hsl(var(--day)/0.15)] text-[hsl(var(--day))]",
+                      isAwake && "bg-[hsl(var(--day)/0.15)] text-[hsl(var(--day))]",
                       isNight && "bg-secondary text-muted-foreground"
                     )}>
                       {isWork ? <Briefcase className="w-3 h-3" /> :
