@@ -34,12 +34,12 @@
 
     --radius: 0.5rem;
 
-    /* Semantic colors - light */
-    --golden: 45 93% 47%;
-    --silver: 215 16% 47%;
-    --work: 142 71% 45%;
-    --day: 199 89% 48%;
-    --night: 215 14% 34%;
+    /* Semantic colors - light (lower saturation for readability) */
+    --golden: 45 85% 42%;
+    --silver: 215 20% 50%;
+    --work: 152 55% 33%;
+    --day: 199 65% 40%;
+    --night: 220 15% 40%;
   }
 
   .dark {
