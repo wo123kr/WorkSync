@@ -13,6 +13,15 @@ export const CITIES = [
   { name: "Shanghai", timezone: "Asia/Shanghai", country: "China" },
   { name: "Toronto", timezone: "America/Toronto", country: "Canada" },
   { name: "São Paulo", timezone: "America/Sao_Paulo", country: "Brazil" },
+  { name: "Hong Kong", timezone: "Asia/Hong_Kong", country: "China" },
+  { name: "Bangkok", timezone: "Asia/Bangkok", country: "Thailand" },
+  { name: "Jakarta", timezone: "Asia/Jakarta", country: "Indonesia" },
+  { name: "Amsterdam", timezone: "Europe/Amsterdam", country: "Netherlands" },
+  { name: "Istanbul", timezone: "Europe/Istanbul", country: "Turkey" },
+  { name: "Chicago", timezone: "America/Chicago", country: "USA" },
+  { name: "Los Angeles", timezone: "America/Los_Angeles", country: "USA" },
+  { name: "Mexico City", timezone: "America/Mexico_City", country: "Mexico" },
+  { name: "Moscow", timezone: "Europe/Moscow", country: "Russia" },
 ];
 
 export const WORK_START_HOUR = 9;

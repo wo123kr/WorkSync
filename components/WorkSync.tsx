@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Moon, Sun, Briefcase } from "lucide-react";
+import { X, Moon, Sun, Briefcase, Copy, Check } from "lucide-react";
 import { CITIES, WORK_START_HOUR, WORK_END_HOUR } from "@/lib/constants";
 import { getTimeStatus, formatTime, getOffsetString } from "@/lib/time-utils";
 import { addMinutes, startOfDay, format } from "date-fns";
@@ -28,16 +28,72 @@ export default function WorkSync() {
   const [lang, setLang] = useState<Language>('ko');
   const [workStart, setWorkStart] = useState(WORK_START_HOUR);
   const [workEnd, setWorkEnd] = useState(WORK_END_HOUR);
+  const [copied, setCopied] = useState(false);
   
   const t = translations[lang];
 
-  // Initialize with current time
+  // Initialize with current time and load saved settings
   useEffect(() => {
     setIsClient(true);
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     setMinutes(currentMinutes);
+
+    // Load from local storage
+    const savedCities = localStorage.getItem('worksync-cities');
+    if (savedCities) {
+      try {
+        const parsed = JSON.parse(savedCities);
+        // Map back to CITIES objects to ensure consistency
+        const mapped = parsed.map((p: any) => CITIES.find(c => c.name === p.name)).filter(Boolean);
+        if (mapped.length > 0) setSelectedCities(mapped);
+      } catch (e) { console.error('Failed to parse saved cities', e); }
+    }
+
+    const savedLang = localStorage.getItem('worksync-lang');
+    if (savedLang && ['ko', 'en', 'zh', 'ja'].includes(savedLang)) {
+      setLang(savedLang as Language);
+    }
+
+    const savedSettings = localStorage.getItem('worksync-settings');
+    if (savedSettings) {
+      try {
+        const { start, end } = JSON.parse(savedSettings);
+        setWorkStart(start);
+        setWorkEnd(end);
+      } catch (e) { console.error('Failed to parse saved settings', e); }
+    }
   }, []);
+
+  // Save to local storage on changes
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('worksync-cities', JSON.stringify(selectedCities));
+  }, [selectedCities, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('worksync-lang', lang);
+  }, [lang, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('worksync-settings', JSON.stringify({ start: workStart, end: workEnd }));
+  }, [workStart, workEnd, isClient]);
+
+  const copyToClipboard = () => {
+    const timeStr = format(currentSelectedTime, "HH:mm");
+    const citiesStr = selectedCities.map(city => {
+       const cityTime = formatTime(currentSelectedTime, city.timezone);
+       return `${city.name}: ${cityTime}`;
+    }).join('\n');
+    
+    const text = `[WorkSync] ${t.goldenHour} Check\nUTC Time: ${timeStr}\n\n${citiesStr}`;
+    
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const addCity = (city: typeof CITIES[0]) => {
     if (!selectedCities.find((c) => c.name === city.name)) {
@@ -59,7 +115,39 @@ export default function WorkSync() {
     return addMinutes(baseDate, minutes);
   }, [baseDate, minutes]);
 
-  // Golden Hour Calculation
+  // Calculate max score across 24h to find "Best Available" times
+  const maxScore = useMemo(() => {
+    if (!isClient || selectedCities.length === 0) return 0;
+    
+    let max = 0;
+    for (let i = 0; i < 1440; i += 15) {
+      const checkTime = addMinutes(baseDate, i);
+      let score = 0;
+      selectedCities.forEach((city) => {
+        const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
+        if (status === 'work') score += 2;
+        else if (status === 'day') score += 1;
+        else score -= 2; // Penalty for night
+      });
+      if (score > max) max = score;
+    }
+    return max;
+  }, [baseDate, selectedCities, isClient, workStart, workEnd]);
+
+  // Current time score
+  const currentScore = useMemo(() => {
+    if (selectedCities.length === 0) return 0;
+    let score = 0;
+    selectedCities.forEach((city) => {
+      const status = getTimeStatus(currentSelectedTime, city.timezone, workStart, workEnd);
+      if (status === 'work') score += 2;
+      else if (status === 'day') score += 1;
+      else score -= 2;
+    });
+    return score;
+  }, [currentSelectedTime, selectedCities, workStart, workEnd]);
+
+  // Golden Hour Calculation (Strict: All working)
   const isGoldenHour = useMemo(() => {
     if (selectedCities.length === 0) return false;
     return selectedCities.every((city) => {
@@ -67,6 +155,9 @@ export default function WorkSync() {
       return status === 'work';
     });
   }, [currentSelectedTime, selectedCities, workStart, workEnd]);
+
+  // Silver Hour (Best Fit) - Only if not Golden, but matches max possible score
+  const isSilverHour = !isGoldenHour && currentScore === maxScore && maxScore > 0;
 
   // Calculate Golden Intervals for the visual track
   const goldenIntervals = useMemo(() => {
@@ -93,6 +184,46 @@ export default function WorkSync() {
     if (currentStart !== null) intervals.push({ start: currentStart, end: 1440 });
     return intervals;
   }, [baseDate, selectedCities, isClient, workStart, workEnd]);
+
+  // Calculate Silver Intervals (Best Fit)
+  const silverIntervals = useMemo(() => {
+    if (!isClient || selectedCities.length === 0) return [];
+    const intervals: { start: number; end: number }[] = [];
+    let currentStart: number | null = null;
+
+    for (let i = 0; i < 1440; i += 15) {
+      const checkTime = addMinutes(baseDate, i);
+      let score = 0;
+      selectedCities.forEach((city) => {
+        const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
+        if (status === 'work') score += 2;
+        else if (status === 'day') score += 1;
+        else score -= 2;
+      });
+
+      // It is a silver interval if it matches max score AND is not a golden interval
+      // (Actually, if golden exists, maxScore will match golden score, so silver logic won't trigger if golden is possible)
+      // But if golden is NOT possible, maxScore represents best fit.
+      // If golden IS possible, maxScore is golden score.
+      // So let's check: is score == maxScore?
+      
+      const isGolden = selectedCities.every((city) => {
+         const status = getTimeStatus(checkTime, city.timezone, workStart, workEnd);
+         return status === 'work';
+      });
+
+      if (score === maxScore && !isGolden && maxScore > 0) {
+        if (currentStart === null) currentStart = i;
+      } else {
+        if (currentStart !== null) {
+          intervals.push({ start: currentStart, end: i });
+          currentStart = null;
+        }
+      }
+    }
+    if (currentStart !== null) intervals.push({ start: currentStart, end: 1440 });
+    return intervals;
+  }, [baseDate, selectedCities, isClient, workStart, workEnd, maxScore]);
 
   if (!isClient) return null;
 
@@ -138,34 +269,82 @@ export default function WorkSync() {
         {/* Main Time Display */}
         <div className="text-center mb-8">
            <motion.div 
-             className="text-7xl font-mono font-bold tracking-tighter text-foreground inline-flex items-center gap-4"
-             animate={{ 
-               color: isGoldenHour ? "#FACC15" : "var(--foreground)",
-               textShadow: isGoldenHour ? "0 0 40px rgba(250,204,21,0.5)" : "none"
-             }}
-           >
-             {format(currentSelectedTime, "HH:mm")}
-             {isGoldenHour && (
-               <motion.span 
-                 initial={{ scale: 0, opacity: 0 }}
-                 animate={{ scale: 1, opacity: 1 }}
-                 className="text-lg bg-yellow-400 text-yellow-950 px-3 py-1 rounded-full font-sans font-bold tracking-wide"
+            className="text-7xl font-mono font-bold tracking-tighter text-foreground inline-flex items-center gap-4"
+            animate={{ 
+              color: isGoldenHour ? "#FACC15" : (isSilverHour ? "#60A5FA" : "var(--foreground)"),
+              textShadow: isGoldenHour ? "0 0 40px rgba(250,204,21,0.5)" : (isSilverHour ? "0 0 30px rgba(96,165,250,0.5)" : "none")
+            }}
+          >
+            {format(currentSelectedTime, "HH:mm")}
+            {isGoldenHour && (
+              <motion.span 
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-yellow-400 ml-2"
+              >
+                ✨
+              </motion.span>
+            )}
+            {isSilverHour && (
+              <motion.span 
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-blue-400 ml-2 text-4xl"
+              >
+                👍
+              </motion.span>
+            )}
+          </motion.div>
+          
+          <div className="flex justify-center mt-4 flex-col items-center gap-2">
+            {(isGoldenHour || isSilverHour) && (
+               <motion.div
+                 initial={{ opacity: 0, y: 10 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 className={cn(
+                   "text-lg font-bold px-4 py-1 rounded-full",
+                   isGoldenHour ? "bg-yellow-400/20 text-yellow-500" : "bg-blue-400/20 text-blue-500"
+                 )}
                >
-                 {t.goldenHour}
-               </motion.span>
-             )}
-           </motion.div>
-           <p className="text-muted-foreground mt-2">{t.dragSlider}</p>
+                 {isGoldenHour ? t.goldenHour : t.silverHour}
+               </motion.div>
+            )}
+
+            <Button
+              variant="ghost"
+               size="sm"
+               className={cn(
+                 "gap-2 transition-all duration-300",
+                 copied ? "text-green-500 bg-green-500/10" : "text-muted-foreground hover:text-foreground"
+               )}
+               onClick={copyToClipboard}
+             >
+               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+               {copied ? t.copied : t.copy}
+             </Button>
+           </div>
         </div>
 
         {/* The Track */}
         <div className="relative h-24 flex items-center select-none group">
             {/* Background Track */}
             <div className="absolute w-full h-3 bg-secondary rounded-full overflow-hidden">
+               {/* Silver Intervals Highlights */}
+               {silverIntervals.map((interval, idx) => (
+                  <div 
+                    key={`silver-${idx}`}
+                    className="absolute h-full bg-blue-500/30"
+                    style={{
+                      left: `${(interval.start / 1440) * 100}%`,
+                      width: `${((interval.end - interval.start) / 1440) * 100}%`
+                    }}
+                  />
+               ))}
+
                {/* Golden Intervals Highlights */}
                {goldenIntervals.map((interval, idx) => (
                   <div 
-                    key={idx}
+                    key={`golden-${idx}`}
                     className="absolute h-full bg-yellow-500/30"
                     style={{
                       left: `${(interval.start / 1440) * 100}%`,
